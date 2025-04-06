@@ -1,5 +1,5 @@
 [[redirects]]
   from = "/*"
-  to = "http://wy.777666888.xyz:5000/:splat"
+  to = "https://wy.777666888.xyz:5001/:splat"
   status = 200
   force = true
