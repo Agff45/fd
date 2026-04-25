@@ -1,5 +1,0 @@
-[[redirects]]
-  from = "/*"
-  to = "https://nas.weyy.top:5001/:splat"
-  status = 200
-  force = true
