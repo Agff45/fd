@@ -62,6 +62,7 @@ def build_router(account_service: AccountService, task_service: TaskService) -> 
         await message.answer(
             f"任务 #{task.id}\n"
             f"状态：{task.status}\n"
+            f"重试次数：{task.retry_count}\n"
             f"链接：{task.link}\n"
             f"目录：{task.target_path}\n"
             f"结果：{task.result_message or '-'}"

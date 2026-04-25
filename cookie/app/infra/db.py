@@ -28,13 +28,24 @@ class Database:
                     link TEXT NOT NULL,
                     target_path TEXT NOT NULL,
                     status TEXT NOT NULL,
+                    retry_count INTEGER NOT NULL DEFAULT 0,
                     result_message TEXT NOT NULL DEFAULT '',
                     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                     updated_at TEXT DEFAULT CURRENT_TIMESTAMP
                 )
                 """
             )
+            await self._ensure_tasks_columns(db)
             await db.commit()
+
+    async def _ensure_tasks_columns(self, db: aiosqlite.Connection) -> None:
+        cursor = await db.execute("PRAGMA table_info(tasks)")
+        rows = await cursor.fetchall()
+        columns = {row[1] for row in rows}
+        if "retry_count" not in columns:
+            await db.execute(
+                "ALTER TABLE tasks ADD COLUMN retry_count INTEGER NOT NULL DEFAULT 0"
+            )
 
     async def bind_account(self, user_id: int, bind_note: str) -> None:
         async with aiosqlite.connect(self.db_path) as db:
@@ -62,8 +73,8 @@ class Database:
         async with aiosqlite.connect(self.db_path) as db:
             cursor = await db.execute(
                 """
-                INSERT INTO tasks(user_id, link, target_path, status, result_message)
-                VALUES(?, ?, ?, ?, '')
+                INSERT INTO tasks(user_id, link, target_path, status, retry_count, result_message)
+                VALUES(?, ?, ?, ?, 0, '')
                 """,
                 (user_id, link, target_path, TaskStatus.PENDING.value),
             )
@@ -84,11 +95,28 @@ class Database:
             )
             await db.commit()
 
+    async def increment_retry_count(self, task_id: int) -> int:
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                """
+                UPDATE tasks
+                SET retry_count=retry_count+1, updated_at=CURRENT_TIMESTAMP
+                WHERE id=?
+                """,
+                (task_id,),
+            )
+            cursor = await db.execute("SELECT retry_count FROM tasks WHERE id=?", (task_id,))
+            row = await cursor.fetchone()
+            await db.commit()
+            if row is None:
+                return 0
+            return int(row[0])
+
     async def get_task(self, task_id: int) -> Task | None:
         async with aiosqlite.connect(self.db_path) as db:
             cursor = await db.execute(
                 """
-                SELECT id, user_id, link, target_path, status, result_message, created_at, updated_at
+                SELECT id, user_id, link, target_path, status, retry_count, result_message, created_at, updated_at
                 FROM tasks WHERE id=?
                 """,
                 (task_id,),
@@ -103,7 +131,8 @@ class Database:
                 link=row[2],
                 target_path=row[3],
                 status=TaskStatus(row[4]),
-                result_message=row[5],
-                created_at=row[6],
-                updated_at=row[7],
+                retry_count=row[5],
+                result_message=row[6],
+                created_at=row[7],
+                updated_at=row[8],
             )

@@ -16,6 +16,7 @@ class Task:
     link: str
     target_path: str
     status: TaskStatus
+    retry_count: int
     result_message: str
     created_at: str
     updated_at: str
